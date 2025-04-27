@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'NeuroSync',
+  title: 'NeuroMate', // Updated title
   description: 'Your personal companion for emotional well-being and goal achievement.',
 };
 

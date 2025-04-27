@@ -99,7 +99,7 @@ export default function JournalPage() {
     <div className="container mx-auto p-4 md:p-8 space-y-8">
       <h1 className="text-3xl font-bold text-foreground">Emotion Journal</h1>
       <p className="text-muted-foreground">
-        Log your thoughts and feelings. NeuroSync will provide supportive feedback.
+        Log your thoughts and feelings. NeuroMate will provide supportive feedback.
       </p>
 
       <Card className="shadow-md rounded-lg">

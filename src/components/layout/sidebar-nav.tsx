@@ -32,15 +32,17 @@ export function SidebarNav() {
     <>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-           <SidebarTrigger className="shrink-0 md:hidden" /> {/* Removed wrapping Button */}
-          <BrainCircuit className="w-6 h-6 text-primary" />
+           <SidebarTrigger className="shrink-0 md:hidden">
+               <BrainCircuit className="w-6 h-6 text-primary" />
+           </SidebarTrigger>
+          <BrainCircuit className="w-6 h-6 text-primary hidden md:flex" />
           <span
             className={cn(
               'font-semibold text-lg whitespace-nowrap transition-opacity duration-300',
-               state === 'collapsed' ? 'opacity-0' : 'opacity-100'
+               state === 'collapsed' ? 'opacity-0 md:opacity-100' : 'opacity-100' // Adjust opacity for collapsed state on mobile vs desktop
             )}
           >
-            NeuroSync
+            NeuroMate
           </span>
         </div>
       </SidebarHeader>
@@ -74,3 +76,5 @@ export function SidebarNav() {
     </>
   );
 }
+
+    

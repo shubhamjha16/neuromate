@@ -52,7 +52,7 @@ export default function GoalsPage() {
   // Simulate loading goals (replace with Firestore fetch)
   React.useEffect(() => {
     // Placeholder: load goals from local storage or API
-    // const storedGoals = localStorage.getItem('neuroSyncGoals');
+    // const storedGoals = localStorage.getItem('neuroMateGoals');
     // if (storedGoals) {
     //   setGoals(JSON.parse(storedGoals).map((g: any) => ({...g, createdAt: new Date(g.createdAt)})));
     // }
@@ -62,9 +62,9 @@ export default function GoalsPage() {
   React.useEffect(() => {
      // Placeholder: save goals to local storage or API
     // if (goals.length > 0) {
-    //   localStorage.setItem('neuroSyncGoals', JSON.stringify(goals));
+    //   localStorage.setItem('neuroMateGoals', JSON.stringify(goals));
     // } else {
-    //    localStorage.removeItem('neuroSyncGoals');
+    //    localStorage.removeItem('neuroMateGoals');
     // }
   }, [goals]);
 
@@ -262,4 +262,3 @@ export default function GoalsPage() {
     </div>
   );
 }
-
