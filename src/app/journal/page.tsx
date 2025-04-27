@@ -47,7 +47,7 @@ type TherapistNotes = {
 
 type JournalEntry = {
   id: string;
-  timestamp: Date;
+  timestamp: Date | string; // Allow string for JSON parsing
   text: string;
   sentiment?: string;
   feedback?: string;
@@ -60,6 +60,7 @@ export default function JournalPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [analysisResult, setAnalysisResult] = React.useState<AnalyzeJournalEntryOutput | null>(null); // Store the full analysis output temporarily
   const [journalEntries, setJournalEntries] = React.useState<JournalEntry[]>([]); // State to hold entries
+  const [isMounted, setIsMounted] = React.useState(false); // Track mount status for localStorage
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -67,6 +68,45 @@ export default function JournalPage() {
       entryText: '',
     },
   });
+
+  // Load entries from localStorage on component mount (client-side only)
+  React.useEffect(() => {
+    setIsMounted(true); // Indicate component has mounted
+    try {
+      const storedEntriesRaw = localStorage.getItem('neuroMateJournalEntries');
+      if (storedEntriesRaw) {
+        // Parse carefully, converting date strings back to Date objects
+        const parsedEntries = JSON.parse(storedEntriesRaw).map((e: any) => ({...e, timestamp: new Date(e.timestamp)})) as JournalEntry[];
+        // Sort entries by date, newest first
+        parsedEntries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setJournalEntries(parsedEntries);
+      }
+    } catch (error) {
+      console.error("Failed to load journal entries from localStorage:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error Loading Entries',
+        description: 'Could not retrieve your saved journal entries.',
+      });
+    }
+  }, [toast]); // Add toast dependency
+
+   // Save entries to localStorage whenever the journalEntries state changes (client-side only)
+   React.useEffect(() => {
+    // Only save if the component is mounted to avoid SSR issues
+    if (isMounted) {
+        try {
+             localStorage.setItem('neuroMateJournalEntries', JSON.stringify(journalEntries));
+        } catch (error) {
+             console.error("Failed to save journal entries to localStorage:", error);
+             toast({
+                variant: 'destructive',
+                title: 'Error Saving Entry',
+                description: 'Could not save your journal entry update.',
+            });
+        }
+    }
+  }, [journalEntries, isMounted, toast]); // Add isMounted and toast dependencies
 
   // Function to handle adding a suggested goal to the Goals page (using localStorage)
   const handleAddSuggestedGoal = (goalDescription: string) => {
@@ -114,13 +154,15 @@ export default function JournalPage() {
     setAnalysisResult(null); // Clear previous analysis display
     console.log('Submitting journal entry:', values.entryText);
 
+    let newEntry: JournalEntry | null = null;
+
     try {
       const result = await analyzeJournalEntry({ entryText: values.entryText });
       console.log('AI Analysis Result:', result);
       setAnalysisResult(result); // Set the full result for display
 
-      // Simulate saving the entry (replace with actual Firestore logic)
-      const newEntry: JournalEntry = {
+      // Create the new entry with analysis results
+      newEntry = {
         id: Date.now().toString(), // Simple ID generation
         timestamp: new Date(),
         text: values.entryText,
@@ -129,10 +171,9 @@ export default function JournalPage() {
         therapistNotes: result.therapistNotes, // Store the therapist notes
         suggestedGoals: result.suggestedGoals || [], // Store suggested goals
       };
-      setJournalEntries([newEntry, ...journalEntries]); // Add new entry to the top
 
       toast({
-        title: 'Journal Entry Saved',
+        title: 'Journal Entry Saved & Analyzed',
         description: 'Your thoughts have been recorded and analyzed.',
       });
       form.reset(); // Reset form after successful submission
@@ -141,18 +182,21 @@ export default function JournalPage() {
       toast({
         variant: 'destructive',
         title: 'Analysis Failed',
-        description: 'Could not analyze your entry. Please try again.',
+        description: 'Could not analyze your entry. Entry saved without analysis.',
       });
-       // Still save the entry even if analysis fails
-       const newEntry: JournalEntry = {
+       // Create entry without analysis results on error
+       newEntry = {
          id: Date.now().toString(),
          timestamp: new Date(),
          text: values.entryText,
          // No sentiment, feedback, therapist notes or goals on error
        };
-       setJournalEntries([newEntry, ...journalEntries]);
-       form.reset(); // Reset form even on error, but keep text if needed
+       form.reset(); // Reset form even on error
     } finally {
+        if (newEntry) {
+             // Add the new entry to the state. The useEffect hook will handle saving to localStorage.
+             setJournalEntries((prevEntries) => [newEntry!, ...prevEntries]);
+        }
       setIsLoading(false);
     }
   }
@@ -267,7 +311,9 @@ export default function JournalPage() {
       {/* Section to display past entries */}
        <div className="space-y-6">
         <h2 className="text-2xl font-semibold text-foreground">Past Entries</h2>
-        {journalEntries.length === 0 ? (
+        {!isMounted ? (
+           <p className="text-muted-foreground">Loading past entries...</p>
+        ) : journalEntries.length === 0 ? (
           <p className="text-muted-foreground">You haven't added any journal entries yet.</p>
         ) : (
           journalEntries.map((entry) => (
@@ -298,7 +344,7 @@ export default function JournalPage() {
                  {/* Display suggested goals if available */}
                  {entry.suggestedGoals && entry.suggestedGoals.length > 0 && (
                      <div className="p-3 bg-accent/20 border-l-4 border-accent rounded mt-3">
-                        <p className="text-sm text-accent-foreground font-medium mb-1">Suggested Goals:</p>
+                        <p className="text-sm text-accent-foreground font-medium mb-1">Suggested Goals (from this entry):</p>
                         <ul className="list-disc list-inside space-y-1 text-sm text-accent-foreground">
                             {entry.suggestedGoals.map((goal, index) => (
                                 <li key={index}>{goal}</li>
