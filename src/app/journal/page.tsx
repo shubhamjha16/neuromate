@@ -4,7 +4,7 @@ import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { BrainCircuit, Loader2 } from 'lucide-react';
+import { BrainCircuit, Loader2, Lightbulb, Target } from 'lucide-react'; // Added Lightbulb and Target
 
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { AnalyzeJournalEntryOutput, analyzeJournalEntry } from '@/ai/flows/analyze-journal-entry'; // Import the Genkit flow and output type
+import Link from 'next/link';
+
 
 const formSchema = z.object({
   entryText: z.string().min(10, {
@@ -42,6 +44,7 @@ type JournalEntry = {
   sentiment?: string;
   feedback?: string;
   therapistNotes?: TherapistNotes; // Add optional therapist notes field
+  suggestedGoals?: string[]; // Add optional suggested goals field
 };
 
 export default function JournalPage() {
@@ -75,6 +78,7 @@ export default function JournalPage() {
         sentiment: result.sentiment,
         feedback: result.feedback,
         therapistNotes: result.therapistNotes, // Store the therapist notes
+        suggestedGoals: result.suggestedGoals || [], // Store suggested goals
       };
       setJournalEntries([newEntry, ...journalEntries]); // Add new entry to the top
 
@@ -95,7 +99,7 @@ export default function JournalPage() {
          id: Date.now().toString(),
          timestamp: new Date(),
          text: values.entryText,
-         // No sentiment, feedback, or therapist notes on error
+         // No sentiment, feedback, therapist notes or goals on error
        };
        setJournalEntries([newEntry, ...journalEntries]);
        form.reset(); // Reset form even on error, but keep text if needed
@@ -108,7 +112,7 @@ export default function JournalPage() {
     <div className="container mx-auto p-4 md:p-8 space-y-8">
       <h1 className="text-3xl font-bold text-foreground">Emotion Journal</h1>
       <p className="text-muted-foreground">
-        Log your thoughts and feelings. NeuroMate will provide supportive feedback.
+        Log your thoughts and feelings. NeuroMate will provide supportive feedback and goal suggestions.
       </p>
 
       <Card className="shadow-md rounded-lg">
@@ -133,7 +137,7 @@ export default function JournalPage() {
                       />
                     </FormControl>
                     <FormDescription>
-                      Your entry is private and secure. AI feedback is provided for support.
+                      Your entry is private and secure. AI feedback and goal suggestions are provided for support. Therapist notes are generated but kept confidential.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -154,19 +158,48 @@ export default function JournalPage() {
         </CardContent>
       </Card>
 
-        {/* Display only the user-facing feedback */}
-        {analysisResult && analysisResult.feedback && (
-            <Card className="mt-6 bg-secondary/30 border-secondary shadow-sm rounded-lg">
-              <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-secondary-foreground">
-                      <BrainCircuit className="w-5 h-5" /> AI Feedback
-                  </CardTitle>
-              </CardHeader>
-              <CardContent className="text-secondary-foreground space-y-2">
-                  {analysisResult.sentiment && <p><strong>Sentiment:</strong> {analysisResult.sentiment}</p>}
-                  <p><strong>Feedback:</strong> {analysisResult.feedback}</p>
-              </CardContent>
-            </Card>
+        {/* Display AI Feedback and Suggested Goals */}
+        {analysisResult && (
+            <div className="mt-6 space-y-4">
+                {/* AI Feedback Card */}
+                {analysisResult.feedback && (
+                    <Card className="bg-secondary/30 border-secondary shadow-sm rounded-lg">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-secondary-foreground">
+                            <BrainCircuit className="w-5 h-5" /> AI Feedback
+                        </CardTitle>
+                        {analysisResult.sentiment && <CardDescription className="text-secondary-foreground/80">Detected Sentiment: {analysisResult.sentiment}</CardDescription>}
+                    </CardHeader>
+                    <CardContent className="text-secondary-foreground">
+                        <p>{analysisResult.feedback}</p>
+                    </CardContent>
+                    </Card>
+                )}
+
+                {/* Suggested Goals Card */}
+                {analysisResult.suggestedGoals && analysisResult.suggestedGoals.length > 0 && (
+                    <Card className="bg-accent/30 border-accent shadow-sm rounded-lg">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-accent-foreground">
+                            <Lightbulb className="w-5 h-5" /> Suggested Goals
+                        </CardTitle>
+                         <CardDescription className="text-accent-foreground/80">Consider adding these to your goals:</CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-accent-foreground space-y-2">
+                        <ul className="list-disc list-inside space-y-1">
+                            {analysisResult.suggestedGoals.map((goal, index) => (
+                                <li key={index}>{goal}</li>
+                            ))}
+                        </ul>
+                        <Button variant="link" className="p-0 h-auto text-accent-foreground hover:text-accent-foreground/80" asChild>
+                            <Link href="/goals">
+                                Go to Goals Page <Target className="ml-1 h-4 w-4"/>
+                            </Link>
+                        </Button>
+                    </CardContent>
+                    </Card>
+                )}
+             </div>
         )}
 
 
@@ -194,16 +227,27 @@ export default function JournalPage() {
                    {entry.sentiment && ` - Sentiment: ${entry.sentiment}`}
                  </CardDescription>
               </CardHeader>
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="p-4 space-y-4">
                 <p className="text-foreground whitespace-pre-wrap">{entry.text}</p>
                  {/* Display user feedback if available */}
                 {entry.feedback && (
-                     <div className="p-3 bg-secondary/20 border-l-4 border-secondary rounded">
-                        <p className="text-sm text-secondary-foreground font-medium">AI Feedback:</p>
+                     <div className="p-3 bg-secondary/20 border-l-4 border-secondary rounded mt-3">
+                        <p className="text-sm text-secondary-foreground font-medium mb-1">AI Feedback:</p>
                         <p className="text-sm text-secondary-foreground">{entry.feedback}</p>
                      </div>
                  )}
-                 {/* IMPORTANT: DO NOT RENDER entry.therapistNotes here */}
+                 {/* Display suggested goals if available */}
+                 {entry.suggestedGoals && entry.suggestedGoals.length > 0 && (
+                     <div className="p-3 bg-accent/20 border-l-4 border-accent rounded mt-3">
+                        <p className="text-sm text-accent-foreground font-medium mb-1">Suggested Goals:</p>
+                        <ul className="list-disc list-inside space-y-1 text-sm text-accent-foreground">
+                            {entry.suggestedGoals.map((goal, index) => (
+                                <li key={index}>{goal}</li>
+                            ))}
+                        </ul>
+                     </div>
+                 )}
+                 {/* IMPORTANT: DO NOT RENDER entry.therapistNotes here. It should be stored but not displayed. */}
               </CardContent>
             </Card>
           ))
