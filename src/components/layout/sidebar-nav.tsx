@@ -32,9 +32,7 @@ export function SidebarNav() {
     <>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-           <Button variant="ghost" size="icon" className="shrink-0 md:hidden">
-              <SidebarTrigger />
-            </Button>
+           <SidebarTrigger className="shrink-0 md:hidden" /> {/* Removed wrapping Button */}
           <BrainCircuit className="w-6 h-6 text-primary" />
           <span
             className={cn(
