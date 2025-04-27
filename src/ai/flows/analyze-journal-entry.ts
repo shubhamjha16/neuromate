@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Analyzes a journal entry for sentiment and provides empathetic, supportive, and therapeutic feedback for the user,
- * as well as separate, more clinical notes intended for a therapist, and suggests positive goals based on the analysis.
+ * as well as separate, more clinical notes intended for a therapist, and suggests positive, longer-term goals based on the analysis.
  *
  * - analyzeJournalEntry - A function that analyzes a journal entry and provides feedback and goal suggestions.
  * - AnalyzeJournalEntryInput - The input type for the analyzeJournalEntry function.
@@ -38,7 +38,7 @@ const AnalyzeJournalEntryOutputSchema = z.object({
       'Deeply empathetic, validating, and gently therapeutic feedback for the user. Acknowledge feelings, offer understanding, normalize experiences where appropriate, and provide gentle prompts for self-compassion or reflection. Avoid jargon and direct advice unless it pertains to general self-care.'
     ),
    therapistNotes: TherapistNotesSchema, // Add the therapist notes section
-   suggestedGoals: z.array(z.string()).optional().describe('Suggest 1-3 positive, actionable goals based on the analysis, particularly focusing on counteracting negative themes identified. Frame these as gentle suggestions (e.g., "Consider practicing self-compassion for 5 minutes daily," "Explore identifying one small positive moment each day," "Try a 3-minute breathing exercise when feeling overwhelmed"). Keep goals concise and user-friendly.')
+   suggestedGoals: z.array(z.string()).optional().describe('Suggest 1-3 positive, actionable, and potentially longer-term goals based on the analysis, particularly focusing on counteracting negative themes or promoting sustained well-being. Frame these as gentle suggestions (e.g., "Explore strategies for setting healthy boundaries in relationships," "Work towards identifying and challenging negative self-talk patterns weekly," "Develop a consistent morning routine focused on self-care"). Keep goals concise, user-friendly, and growth-oriented.')
 });
 export type AnalyzeJournalEntryOutput = z.infer<typeof AnalyzeJournalEntryOutputSchema>;
 
@@ -71,14 +71,14 @@ const analyzeJournalEntryPrompt = ai.definePrompt({
            potentialDiagnosis: z.string().describe('**For the Therapist ONLY:** Based *only* on this text, note any potential diagnostic considerations or patterns using cautious, suggestive language. Frame as observations, not conclusions. Examples: "Entry suggests patterns consistent with GAD features," "Observed cognitive distortions align with depressive thinking," "Possible signs of social anxiety," "Rule out adjustment disorder." **Explicitly state this is not a diagnosis.**'),
            therapeuticSuggestions: z.string().describe('**For the Therapist ONLY:** Suggest relevant evidence-based therapeutic approaches or interventions a therapist might consider exploring. Be specific. Examples: "Cognitive restructuring (CBT) for negative automatic thoughts," "Mindfulness-based stress reduction (MBSR) techniques," "Schema therapy interventions for maladaptive schemas," "Emotion regulation skills training (DBT)," "Consider exploring attachment history." Link suggestions to the core issues noted.')
       }).describe('**Confidential Section for Therapist Review ONLY.** Contains clinical analysis and suggestions based on psychological principles. DO NOT show this section to the user.'),
-      suggestedGoals: z.array(z.string()).optional().describe('**For the User:** Based on the overall analysis (especially negative themes identified in the therapist notes, if applicable), suggest 1-3 simple, positive, and actionable goals. Frame them as gentle invitations. Examples: "Maybe try noticing one thing you appreciate about yourself today?", "Consider dedicating 5 minutes to mindful breathing when stress rises.", "How about writing down one small accomplishment each evening?". Keep goals concise and focused on well-being or shifting perspective positively.')
+      suggestedGoals: z.array(z.string()).optional().describe('**For the User:** Based on the overall analysis (especially themes identified in the therapist notes, if applicable), suggest 1-3 simple, positive, actionable, and **growth-oriented** goals. Frame them as gentle invitations towards longer-term well-being or shifting perspective positively. Focus on sustained practices or exploration rather than just single tasks. Examples: "Consider exploring one new coping strategy for stress this month.", "Maybe practice identifying and reframing one recurring negative thought pattern each week?", "What about dedicating time weekly to an activity that brings you joy and relaxation?", "Explore ways to communicate your needs more directly in one key relationship." Keep goals concise and user-friendly.')
     }),
   },
-  // Updated prompt for empathetic feedback, therapist notes, and goal suggestions.
+  // Updated prompt for empathetic feedback, therapist notes, and longer-term goal suggestions.
   prompt: `You are NeuroMate, an AI assistant trained in analyzing journal entries with psychological insight. Your task is threefold:
   1.  Provide a deeply empathetic and supportive response directly to the user who wrote the entry.
   2.  Generate separate, analytical notes intended ONLY for a qualified therapist reviewing the entry. This section MUST remain confidential from the user.
-  3.  Suggest 1-3 positive, actionable goals for the user based on the analysis, aiming to counteract identified negative patterns or promote well-being.
+  3.  Suggest 1-3 positive, actionable, and **growth-oriented** goals for the user based on the analysis, aiming to counteract identified negative patterns or promote sustained well-being over time.
 
   **Journal Entry:**
   '''
@@ -102,11 +102,11 @@ const analyzeJournalEntryPrompt = ai.definePrompt({
 
   **Part 3: Goal Suggestions (Output field: 'suggestedGoals')**
   *   Review your analysis (including the confidential therapist notes).
-  *   If negative patterns, distress, or areas for growth are identified, formulate 1-3 simple, positive, and actionable goals.
-  *   Focus on goals that promote self-compassion, mindfulness, positive reframing, or small behavioral changes related to well-being.
-  *   Phrase them as gentle invitations or considerations (e.g., "Maybe consider...", "Perhaps try...", "What if you explored...?").
-  *   Example Goal Ideas: Practice gratitude journaling for 2 minutes daily, identify one strength you used today, engage in a 5-minute calming activity when feeling overwhelmed, challenge one negative thought with a more balanced perspective.
-  *   Ensure goals are user-friendly and not overly clinical.
+  *   If negative patterns, distress, or areas for growth are identified, formulate 1-3 simple, positive, actionable, and **longer-term oriented** goals.
+  *   Focus on goals that promote sustained self-compassion, mindfulness practices, positive reframing skills, boundary setting, or behavioral changes related to consistent well-being or addressing identified patterns. Avoid overly simplistic daily tasks unless they build towards a larger objective.
+  *   Phrase them as gentle invitations or considerations (e.g., "Maybe consider exploring...", "Perhaps work towards...", "What if you dedicated time to...?").
+  *   Example Goal Ideas: "Explore different mindfulness techniques to find one that resonates for regular practice.", "Work on identifying triggers for [specific emotion/pattern] and developing a response plan.", "Dedicate [timeframe, e.g., 1 hour weekly] to a hobby or activity purely for enjoyment.", "Practice saying 'no' to one small request this week to build boundary skills.", "Identify one area where you tend to be self-critical and practice challenging those thoughts consistently."
+  *   Ensure goals are user-friendly, growth-focused, and not overly clinical.
 
   **Output Format:**
   Provide your complete response structured according to the defined output schema. Ensure the 'therapistNotes' section contains ONLY the analytical information for the therapist and IS NOT included in the user-facing feedback. Ensure the 'feedback' is purely supportive and empathetic. Provide the 'suggestedGoals' as a list of strings.

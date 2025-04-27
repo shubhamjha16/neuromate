@@ -1,10 +1,10 @@
- 'use client';
+'use client';
 
 import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { BrainCircuit, Loader2, Lightbulb, Target, PlusCircle } from 'lucide-react'; // Added PlusCircle
+import { BrainCircuit, Loader2, Lightbulb, Target, PlusCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,8 +20,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { AnalyzeJournalEntryOutput, analyzeJournalEntry } from '@/ai/flows/analyze-journal-entry'; // Import the Genkit flow and output type
+import { AnalyzeJournalEntryOutput, analyzeJournalEntry } from '@/ai/flows/analyze-journal-entry';
 import Link from 'next/link';
+
+// Define Goal type consistent with Goals page
+type Goal = {
+  id: string;
+  description: string;
+  isCompleted: boolean;
+  createdAt: Date | string; // Allow string for JSON parsing
+};
 
 
 const formSchema = z.object({
@@ -60,18 +68,44 @@ export default function JournalPage() {
     },
   });
 
-  // Function to handle adding a suggested goal
-  // In a real app, this would interact with the Firestore service to add the goal
+  // Function to handle adding a suggested goal to the Goals page (using localStorage)
   const handleAddSuggestedGoal = (goalDescription: string) => {
-    console.log('Adding suggested goal:', goalDescription);
-    // Simulate adding the goal (replace with actual logic)
-    // For now, just show a confirmation toast
-    toast({
-      title: 'Goal Added (Simulated)',
-      description: `"${goalDescription}" would be added to your goals list.`,
-    });
-    // Optionally, you could navigate to the goals page here:
-    // router.push('/goals');
+    try {
+        const newGoal: Goal = {
+            id: Date.now().toString(), // Simple ID
+            description: goalDescription,
+            isCompleted: false,
+            createdAt: new Date(),
+        };
+
+        // Get existing goals from localStorage
+        const storedGoalsRaw = localStorage.getItem('neuroMateGoals');
+        let currentGoals: Goal[] = [];
+        if (storedGoalsRaw) {
+             // Parse carefully, converting date strings back to Date objects
+             currentGoals = JSON.parse(storedGoalsRaw).map((g: any) => ({...g, createdAt: new Date(g.createdAt)})) as Goal[];
+        }
+
+
+        // Add the new goal and save back to localStorage
+        const updatedGoals = [newGoal, ...currentGoals];
+        localStorage.setItem('neuroMateGoals', JSON.stringify(updatedGoals));
+
+        console.log('Added suggested goal to localStorage:', newGoal);
+        toast({
+            title: 'Goal Added',
+            description: `"${goalDescription}" has been added to your Goals page.`,
+            // Optional: Add action to navigate to goals page
+            // action: <ToastAction altText="View Goals"><Link href="/goals">View</Link></ToastAction>,
+        });
+    } catch (error) {
+         console.error("Failed to add goal to localStorage:", error);
+          toast({
+            variant: 'destructive',
+            title: 'Failed to Add Goal',
+            description: 'Could not add the goal to your list. Please try again.',
+        });
+    }
   };
 
 
@@ -203,7 +237,7 @@ export default function JournalPage() {
                     <CardContent className="text-accent-foreground space-y-3">
                         {analysisResult.suggestedGoals.map((goal, index) => (
                              <div key={index} className="flex items-center justify-between gap-2">
-                                <span>{goal}</span>
+                                <span className="flex-grow">{goal}</span>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -240,12 +274,12 @@ export default function JournalPage() {
             <Card key={entry.id} className="shadow-sm rounded-lg overflow-hidden">
               <CardHeader className="bg-muted/50 p-4">
                 <CardTitle className="text-lg">
-                   {entry.timestamp.toLocaleDateString('en-US', {
+                   {new Date(entry.timestamp).toLocaleDateString('en-US', { // Ensure timestamp is treated as Date
                       year: 'numeric', month: 'long', day: 'numeric'
                    })}
                 </CardTitle>
                  <CardDescription className="text-xs">
-                  {entry.timestamp.toLocaleTimeString('en-US', {
+                  {new Date(entry.timestamp).toLocaleTimeString('en-US', { // Ensure timestamp is treated as Date
                       hour: '2-digit', minute: '2-digit'
                    })}
                    {/* Display sentiment if available */}

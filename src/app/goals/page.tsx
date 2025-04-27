@@ -34,13 +34,14 @@ type Goal = {
   id: string;
   description: string;
   isCompleted: boolean;
-  createdAt: Date;
+  createdAt: Date | string; // Allow string for JSON parsing
 };
 
 export default function GoalsPage() {
   const { toast } = useToast();
   const [goals, setGoals] = React.useState<Goal[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isMounted, setIsMounted] = React.useState(false); // Track mount status
 
   const form = useForm<z.infer<typeof goalSchema>>({
     resolver: zodResolver(goalSchema),
@@ -49,29 +50,50 @@ export default function GoalsPage() {
     },
   });
 
-  // Simulate loading goals (replace with Firestore fetch)
+  // Load goals from localStorage on component mount (client-side only)
   React.useEffect(() => {
-    // Placeholder: load goals from local storage or API
-    // const storedGoals = localStorage.getItem('neuroMateGoals');
-    // if (storedGoals) {
-    //   setGoals(JSON.parse(storedGoals).map((g: any) => ({...g, createdAt: new Date(g.createdAt)})));
-    // }
-  }, []);
+    setIsMounted(true); // Indicate component has mounted
+    try {
+      const storedGoalsRaw = localStorage.getItem('neuroMateGoals');
+      if (storedGoalsRaw) {
+        // Parse carefully, converting date strings back to Date objects
+        const parsedGoals = JSON.parse(storedGoalsRaw).map((g: any) => ({...g, createdAt: new Date(g.createdAt)})) as Goal[];
+        setGoals(parsedGoals);
+      }
+    } catch (error) {
+      console.error("Failed to load goals from localStorage:", error);
+      // Optionally show a toast to the user
+       toast({
+            variant: 'destructive',
+            title: 'Error Loading Goals',
+            description: 'Could not retrieve your saved goals.',
+        });
+    }
+  }, [toast]); // Add toast to dependency array
 
-  // Simulate saving goals (replace with Firestore save)
+  // Save goals to localStorage whenever the goals state changes (client-side only)
   React.useEffect(() => {
-     // Placeholder: save goals to local storage or API
-    // if (goals.length > 0) {
-    //   localStorage.setItem('neuroMateGoals', JSON.stringify(goals));
-    // } else {
-    //    localStorage.removeItem('neuroMateGoals');
-    // }
-  }, [goals]);
+    // Only save if the component is mounted to avoid SSR issues
+    if (isMounted) {
+        try {
+             localStorage.setItem('neuroMateGoals', JSON.stringify(goals));
+        } catch (error) {
+             console.error("Failed to save goals to localStorage:", error);
+             // Optionally show a toast to the user
+              toast({
+                variant: 'destructive',
+                title: 'Error Saving Goals',
+                description: 'Could not save your goals updates.',
+            });
+        }
+    }
+  }, [goals, isMounted, toast]); // Add isMounted and toast
 
 
   function onSubmit(values: z.infer<typeof goalSchema>) {
     setIsLoading(true);
-    // Simulate API call delay
+    // Simulate API call delay - Replace with actual logic if needed
+    // For localStorage, the update happens in the useEffect hook
     setTimeout(() => {
       const newGoal: Goal = {
         id: Date.now().toString(), // Simple ID
@@ -79,20 +101,23 @@ export default function GoalsPage() {
         isCompleted: false,
         createdAt: new Date(),
       };
-      setGoals([newGoal, ...goals]); // Add to the top
+      // Add the new goal to the state. useEffect will handle saving.
+      setGoals([newGoal, ...goals]);
       toast({
         title: 'Goal Added',
         description: `"${values.goalDescription}" has been added to your goals.`,
       });
       form.reset();
       setIsLoading(false);
-    }, 500); // 0.5 second delay
+    }, 500); // 0.5 second delay simulation
   }
 
  const toggleGoalCompletion = (id: string) => {
-    setGoals(goals.map(goal =>
+    const updatedGoals = goals.map(goal =>
       goal.id === id ? { ...goal, isCompleted: !goal.isCompleted } : goal
-    ));
+    );
+    // Update state. useEffect will handle saving.
+    setGoals(updatedGoals);
     const updatedGoal = goals.find(g => g.id === id);
      toast({
         title: `Goal ${updatedGoal && !updatedGoal.isCompleted ? 'Marked as Complete' : 'Marked as Incomplete'}`,
@@ -102,7 +127,9 @@ export default function GoalsPage() {
 
   const deleteGoal = (id: string) => {
      const goalToDelete = goals.find(g => g.id === id);
-     setGoals(goals.filter(goal => goal.id !== id));
+     const updatedGoals = goals.filter(goal => goal.id !== id);
+     // Update state. useEffect will handle saving.
+     setGoals(updatedGoals);
       toast({
         variant: 'destructive',
         title: 'Goal Deleted',
@@ -110,8 +137,10 @@ export default function GoalsPage() {
       });
   };
 
- const activeGoals = goals.filter(goal => !goal.isCompleted).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
- const completedGoals = goals.filter(goal => goal.isCompleted).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  // Derive active and completed goals from the state
+  // Ensure createdAt is treated as Date for sorting
+ const activeGoals = goals.filter(goal => !goal.isCompleted).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+ const completedGoals = goals.filter(goal => goal.isCompleted).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 
   return (
@@ -166,8 +195,10 @@ export default function GoalsPage() {
       {/* Active Goals Section */}
       <div className="space-y-4">
         <h2 className="text-2xl font-semibold text-foreground">Active Goals</h2>
-        {activeGoals.length === 0 ? (
-          <p className="text-muted-foreground">You have no active goals. Add one above to get started!</p>
+        {!isMounted ? ( // Show loading or placeholder while mounting
+             <p className="text-muted-foreground">Loading goals...</p>
+        ) : activeGoals.length === 0 ? (
+          <p className="text-muted-foreground">You have no active goals. Add one above or from your journal!</p>
         ) : (
           <div className="space-y-3">
             {activeGoals.map((goal) => (
@@ -211,7 +242,7 @@ export default function GoalsPage() {
       </div>
 
        {/* Completed Goals Section */}
-       {completedGoals.length > 0 && (
+       {isMounted && completedGoals.length > 0 && (
          <>
             <Separator />
             <div className="space-y-4">
