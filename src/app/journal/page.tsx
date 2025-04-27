@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeJournalEntry } from '@/ai/flows/analyze-journal-entry'; // Import the Genkit flow
+import { AnalyzeJournalEntryOutput, analyzeJournalEntry } from '@/ai/flows/analyze-journal-entry'; // Import the Genkit flow and output type
 
 const formSchema = z.object({
   entryText: z.string().min(10, {
@@ -28,20 +28,27 @@ const formSchema = z.object({
   }),
 });
 
+// Define the structure for therapist notes within the JournalEntry type
+type TherapistNotes = {
+  coreIssues: string;
+  potentialDiagnosis: string;
+  therapeuticSuggestions: string;
+};
+
 type JournalEntry = {
   id: string;
   timestamp: Date;
   text: string;
   sentiment?: string;
   feedback?: string;
+  therapistNotes?: TherapistNotes; // Add optional therapist notes field
 };
 
 export default function JournalPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [analysisResult, setAnalysisResult] = React.useState<{ sentiment: string; feedback: string } | null>(null);
-   const [journalEntries, setJournalEntries] = React.useState<JournalEntry[]>([]); // State to hold entries
-
+  const [analysisResult, setAnalysisResult] = React.useState<AnalyzeJournalEntryOutput | null>(null); // Store the full analysis output temporarily
+  const [journalEntries, setJournalEntries] = React.useState<JournalEntry[]>([]); // State to hold entries
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,15 +57,15 @@ export default function JournalPage() {
     },
   });
 
- async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    setAnalysisResult(null); // Clear previous analysis
+    setAnalysisResult(null); // Clear previous analysis display
     console.log('Submitting journal entry:', values.entryText);
 
     try {
       const result = await analyzeJournalEntry({ entryText: values.entryText });
       console.log('AI Analysis Result:', result);
-      setAnalysisResult(result);
+      setAnalysisResult(result); // Set the full result for display
 
       // Simulate saving the entry (replace with actual Firestore logic)
       const newEntry: JournalEntry = {
@@ -67,12 +74,13 @@ export default function JournalPage() {
         text: values.entryText,
         sentiment: result.sentiment,
         feedback: result.feedback,
+        therapistNotes: result.therapistNotes, // Store the therapist notes
       };
       setJournalEntries([newEntry, ...journalEntries]); // Add new entry to the top
 
       toast({
         title: 'Journal Entry Saved',
-        description: 'Your thoughts have been recorded.',
+        description: 'Your thoughts have been recorded and analyzed.',
       });
       form.reset(); // Reset form after successful submission
     } catch (error) {
@@ -87,9 +95,10 @@ export default function JournalPage() {
          id: Date.now().toString(),
          timestamp: new Date(),
          text: values.entryText,
+         // No sentiment, feedback, or therapist notes on error
        };
        setJournalEntries([newEntry, ...journalEntries]);
-        form.reset(); // Reset form even on error, but keep text if needed
+       form.reset(); // Reset form even on error, but keep text if needed
     } finally {
       setIsLoading(false);
     }
@@ -124,7 +133,7 @@ export default function JournalPage() {
                       />
                     </FormControl>
                     <FormDescription>
-                      Your entry is private and secure.
+                      Your entry is private and secure. AI feedback is provided for support.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -145,7 +154,8 @@ export default function JournalPage() {
         </CardContent>
       </Card>
 
-        {analysisResult && (
+        {/* Display only the user-facing feedback */}
+        {analysisResult && analysisResult.feedback && (
             <Card className="mt-6 bg-secondary/30 border-secondary shadow-sm rounded-lg">
               <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-secondary-foreground">
@@ -153,7 +163,7 @@ export default function JournalPage() {
                   </CardTitle>
               </CardHeader>
               <CardContent className="text-secondary-foreground space-y-2">
-                  <p><strong>Sentiment:</strong> {analysisResult.sentiment}</p>
+                  {analysisResult.sentiment && <p><strong>Sentiment:</strong> {analysisResult.sentiment}</p>}
                   <p><strong>Feedback:</strong> {analysisResult.feedback}</p>
               </CardContent>
             </Card>
@@ -180,17 +190,20 @@ export default function JournalPage() {
                   {entry.timestamp.toLocaleTimeString('en-US', {
                       hour: '2-digit', minute: '2-digit'
                    })}
+                   {/* Display sentiment if available */}
                    {entry.sentiment && ` - Sentiment: ${entry.sentiment}`}
                  </CardDescription>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
                 <p className="text-foreground whitespace-pre-wrap">{entry.text}</p>
+                 {/* Display user feedback if available */}
                 {entry.feedback && (
                      <div className="p-3 bg-secondary/20 border-l-4 border-secondary rounded">
                         <p className="text-sm text-secondary-foreground font-medium">AI Feedback:</p>
                         <p className="text-sm text-secondary-foreground">{entry.feedback}</p>
                      </div>
                  )}
+                 {/* IMPORTANT: DO NOT RENDER entry.therapistNotes here */}
               </CardContent>
             </Card>
           ))

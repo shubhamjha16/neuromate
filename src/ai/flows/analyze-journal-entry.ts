@@ -1,11 +1,12 @@
 'use server';
 
 /**
- * @fileOverview Analyzes a journal entry for sentiment and provides empathetic, supportive, and therapeutic feedback.
+ * @fileOverview Analyzes a journal entry for sentiment and provides empathetic, supportive, and therapeutic feedback for the user,
+ * as well as separate, more clinical notes intended for a therapist.
  *
  * - analyzeJournalEntry - A function that analyzes a journal entry and provides feedback.
  * - AnalyzeJournalEntryInput - The input type for the analyzeJournalEntry function.
- * - AnalyzeJournalEntryOutput - The return type for the analyzeJournalEntry function.
+ * - AnalyzeJournalEntryOutput - The return type for the analyzeJournalEntry function, including user feedback and therapist notes.
  */
 
 import {ai} from '@/ai/ai-instance';
@@ -16,18 +17,27 @@ const AnalyzeJournalEntryInputSchema = z.object({
 });
 export type AnalyzeJournalEntryInput = z.infer<typeof AnalyzeJournalEntryInputSchema>;
 
-// Output schema remains the same, but the 'feedback' content will be different.
+// Define the structure for therapist-specific notes
+const TherapistNotesSchema = z.object({
+    coreIssues: z.string().describe('Identify potential underlying core psychological issues or themes observed in the entry (e.g., attachment anxiety, low self-worth, cognitive distortions like catastrophizing). Focus on patterns, not just surface emotions.'),
+    potentialDiagnosis: z.string().describe('Based on the entry, suggest potential diagnostic considerations or patterns (e.g., "Presents with symptoms consistent with mild anxiety," "Shows signs of persistent depressive thinking," "Possible indicators of adjustment difficulties"). Use cautious, suggestive language. THIS IS NOT A CLINICAL DIAGNOSIS.'),
+    therapeuticSuggestions: z.string().describe('Recommend relevant evidence-based therapeutic approaches or techniques a therapist might consider (e.g., "Consider CBT techniques for challenging negative automatic thoughts," "Exploration of past experiences via psychodynamic approach may be beneficial," "Introduce mindfulness and distress tolerance skills from DBT"). Be specific about the modality and its target.')
+}).optional().describe('Confidential notes intended only for a qualified therapist reviewing this entry.');
+
+
+// Updated output schema to include therapist notes.
 const AnalyzeJournalEntryOutputSchema = z.object({
   sentiment: z
     .string()
     .describe(
-      'The underlying sentiment of the journal entry (e.g., hopeful, anxious, grateful, frustrated, content, sad, etc.), as determined by the analysis.'
+      'The primary underlying sentiment or emotional tone of the journal entry (e.g., hopeful, anxious, grateful, frustrated, content, sad, overwhelmed, reflective), as determined by the analysis.'
     ),
   feedback: z
     .string()
     .describe(
-      'Empathetic and therapeutic feedback that validates the user\'s feelings, offers understanding, and potentially gentle prompts for reflection, based on the journal entry.'
+      'Deeply empathetic, validating, and gently therapeutic feedback for the user. Acknowledge feelings, offer understanding, normalize experiences where appropriate, and provide gentle prompts for self-compassion or reflection. Avoid jargon and direct advice unless it pertains to general self-care.'
     ),
+   therapistNotes: TherapistNotesSchema, // Add the therapist notes section
 });
 export type AnalyzeJournalEntryOutput = z.infer<typeof AnalyzeJournalEntryOutputSchema>;
 
@@ -48,33 +58,47 @@ const analyzeJournalEntryPrompt = ai.definePrompt({
       sentiment:
         z.string()
           .describe(
-            'Identify the primary sentiment expressed in the journal entry. Be specific (e.g., anxious, grateful, frustrated, content, overwhelmed, hopeful).'
+            'Identify the primary sentiment expressed in the journal entry. Be specific and nuanced (e.g., anxious and overwhelmed, cautiously optimistic, deeply grateful, frustrated but resilient, numb, reflective sadness).'
           ),
       feedback: z
         .string()
         .describe(
-          'Provide an empathetic and supportive response. Validate the user\'s feelings without judgment. Offer understanding and gentle encouragement. Avoid giving direct advice unless it\'s about self-care practices. Frame it as a caring companion or a non-clinical therapeutic guide. If appropriate, you can gently ask an open-ended question to encourage further reflection, but prioritize validation and support.'
+          '**For the User:** Provide a deeply empathetic, warm, and validating response. Acknowledge the specific feelings expressed, normalize their experience if appropriate ("It makes sense you\'d feel..."). Offer genuine understanding and compassion like a caring companion. Use "I" statements like "I hear how difficult that sounds" or "I understand that feeling of...". Encourage self-compassion. Avoid clinical terms, diagnosis, or strong directives. Gentle, open-ended reflection prompts are okay (e.g., "What kindness could you offer yourself in this moment?"), but prioritize validation.'
           ),
+      therapistNotes: z.object({
+           coreIssues: z.string().describe('**For the Therapist ONLY:** Analyze the text for potential underlying psychological themes or core issues. Look beyond surface emotions. Examples: unresolved grief, perfectionism, fear of abandonment, negative self-concept, possible trauma indicators, difficulty with emotional regulation.'),
+           potentialDiagnosis: z.string().describe('**For the Therapist ONLY:** Based *only* on this text, note any potential diagnostic considerations or patterns using cautious, suggestive language. Frame as observations, not conclusions. Examples: "Entry suggests patterns consistent with GAD features," "Observed cognitive distortions align with depressive thinking," "Possible signs of social anxiety," "Rule out adjustment disorder." **Explicitly state this is not a diagnosis.**'),
+           therapeuticSuggestions: z.string().describe('**For the Therapist ONLY:** Suggest relevant evidence-based therapeutic approaches or interventions a therapist might consider exploring. Be specific. Examples: "Cognitive restructuring (CBT) for negative automatic thoughts," "Mindfulness-based stress reduction (MBSR) techniques," "Schema therapy interventions for maladaptive schemas," "Emotion regulation skills training (DBT)," "Consider exploring attachment history." Link suggestions to the core issues noted.')
+      }).describe('**Confidential Section for Therapist Review ONLY.** Contains clinical analysis and suggestions based on psychological principles. DO NOT show this section to the user.')
     }),
   },
-  // Updated prompt for more empathetic and therapeutic responses.
-  prompt: `You are NeuroMate, a deeply empathetic and supportive AI companion. Your role is to read journal entries and respond in a way that makes the user feel heard, understood, and validated. Avoid clinical jargon or diagnosing. Focus on emotional support and gentle encouragement.
+  // Updated prompt for more empathetic and therapeutic responses + therapist notes.
+  prompt: `You are NeuroMate, an AI assistant trained in analyzing journal entries with psychological insight. Your task is twofold:
+  1.  Provide a deeply empathetic and supportive response directly to the user who wrote the entry.
+  2.  Generate separate, analytical notes intended ONLY for a qualified therapist reviewing the entry.
 
-  Read the following journal entry carefully:
+  **Journal Entry:**
   '''
   {{entryText}}
   '''
 
-  Based on the entry:
-  1.  **Identify the primary sentiment:** What is the core emotion or feeling being expressed? Be specific (e.g., 'anxious and overwhelmed', 'cautiously optimistic', 'deeply grateful', 'frustrated but resilient').
-  2.  **Write an empathetic feedback response:**
-      *   Acknowledge and validate the feelings you identified. Use phrases like "It sounds like you're feeling...", "It's completely understandable that you'd feel...", "Thank you for sharing this, it takes courage to express...".
-      *   Show understanding and compassion.
-      *   Offer gentle support or encouragement. Reassure them that their feelings are valid.
-      *   If it feels natural and supportive, you *can* ask a gentle, open-ended question like "What does support look like for you right now?" or "Is there anything small you could do to be kind to yourself today?" but only if it fits the context and doesn't feel probing. Prioritize validation first.
-      *   Keep the tone warm, caring, and non-judgmental.
+  **Analysis Task:**
 
-  Provide your response in the specified output format.
+  **Part 1: For the User (Output field: 'feedback')**
+  *   Read the entry with deep empathy. Identify the primary feelings and experiences being shared.
+  *   Write a warm, validating, and supportive response. Use "I" statements to convey understanding (e.g., "I hear how challenging this situation is for you," "It sounds like you're carrying a heavy weight").
+  *   Acknowledge and normalize their feelings without judgment ("It's completely understandable to feel X given Y").
+  *   Focus on compassion and gentle encouragement towards self-kindness.
+  *   Avoid clinical jargon, diagnosis, or giving strong advice (unless suggesting general self-care like deep breathing).
+  *   Keep the tone therapeutic, like a caring, non-clinical guide. A gentle reflection question is acceptable if it flows naturally (e.g., "I wonder what support feels like for you right now?").
+
+  **Part 2: For the Therapist (Output object: 'therapistNotes')**
+  *   **Core Issues:** Analyze the text for deeper psychological themes, patterns, or potential core issues (e.g., cognitive distortions, defense mechanisms, attachment patterns, self-worth issues).
+  *   **Potential Diagnosis:** Based SOLELY on this text, cautiously note any potential diagnostic considerations or symptom clusters that a therapist might explore further. Use phrases like "suggests features of...", "possible indicators of...", "consistent with..." Phrase this carefully, stating it is NOT a formal diagnosis.
+  *   **Therapeutic Suggestions:** Recommend specific, evidence-based therapeutic modalities or techniques relevant to the observed issues (e.g., CBT, DBT, ACT, psychodynamic exploration, EMDR if trauma indicators present). Link the suggestion to the identified core issue or potential diagnosis.
+
+  **Output Format:**
+  Provide your complete response structured according to the defined output schema, ensuring the 'therapistNotes' section contains only the analytical information for the therapist. Ensure the user 'feedback' is purely supportive and empathetic.
   `,
 });
 
@@ -88,14 +112,26 @@ const analyzeJournalEntryFlow = ai.defineFlow<
 },
 async input => {
   const {output} = await analyzeJournalEntryPrompt(input);
-  // Basic check for valid output, although the prompt and schema should handle this.
+  // Basic check for valid output structure.
   if (!output || !output.sentiment || !output.feedback) {
-      console.error("AI analysis failed to produce valid output structure.");
-      // Provide a default, gentle fallback response
+      console.error("AI analysis failed to produce valid user output structure.");
+      // Provide a default, gentle fallback response for the user part
       return {
           sentiment: 'Neutral', // Default sentiment
-          feedback: 'Thank you for sharing your thoughts. Remember to be kind to yourself today.'
+          feedback: 'Thank you for sharing your thoughts. Remember to be kind to yourself today.',
+          therapistNotes: undefined // Ensure therapist notes are undefined if basic output fails
       };
   }
+   // Even if user feedback is present, check if therapist notes were generated as expected
+   if (!output.therapistNotes) {
+       console.warn("AI analysis did not generate therapist notes for this entry.");
+       // Return the output without therapist notes, but log the warning
+        return {
+            sentiment: output.sentiment,
+            feedback: output.feedback,
+            therapistNotes: undefined
+        };
+   }
+
   return output;
 });
