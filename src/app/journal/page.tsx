@@ -1,10 +1,10 @@
-'use client';
+ 'use client';
 
 import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { BrainCircuit, Loader2, Lightbulb, Target } from 'lucide-react'; // Added Lightbulb and Target
+import { BrainCircuit, Loader2, Lightbulb, Target, PlusCircle } from 'lucide-react'; // Added PlusCircle
 
 import { Button } from '@/components/ui/button';
 import {
@@ -59,6 +59,21 @@ export default function JournalPage() {
       entryText: '',
     },
   });
+
+  // Function to handle adding a suggested goal
+  // In a real app, this would interact with the Firestore service to add the goal
+  const handleAddSuggestedGoal = (goalDescription: string) => {
+    console.log('Adding suggested goal:', goalDescription);
+    // Simulate adding the goal (replace with actual logic)
+    // For now, just show a confirmation toast
+    toast({
+      title: 'Goal Added (Simulated)',
+      description: `"${goalDescription}" would be added to your goals list.`,
+    });
+    // Optionally, you could navigate to the goals page here:
+    // router.push('/goals');
+  };
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
@@ -183,19 +198,29 @@ export default function JournalPage() {
                         <CardTitle className="flex items-center gap-2 text-accent-foreground">
                             <Lightbulb className="w-5 h-5" /> Suggested Goals
                         </CardTitle>
-                         <CardDescription className="text-accent-foreground/80">Consider adding these to your goals:</CardDescription>
+                         <CardDescription className="text-accent-foreground/80">Consider adding these to your personal goals:</CardDescription>
                     </CardHeader>
-                    <CardContent className="text-accent-foreground space-y-2">
-                        <ul className="list-disc list-inside space-y-1">
-                            {analysisResult.suggestedGoals.map((goal, index) => (
-                                <li key={index}>{goal}</li>
-                            ))}
-                        </ul>
-                        <Button variant="link" className="p-0 h-auto text-accent-foreground hover:text-accent-foreground/80" asChild>
-                            <Link href="/goals">
-                                Go to Goals Page <Target className="ml-1 h-4 w-4"/>
-                            </Link>
-                        </Button>
+                    <CardContent className="text-accent-foreground space-y-3">
+                        {analysisResult.suggestedGoals.map((goal, index) => (
+                             <div key={index} className="flex items-center justify-between gap-2">
+                                <span>{goal}</span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAddSuggestedGoal(goal)}
+                                    className="bg-accent/50 hover:bg-accent/70 border-accent-foreground/30 text-accent-foreground shrink-0"
+                                >
+                                    <PlusCircle className="mr-1 h-4 w-4" /> Add Goal
+                                </Button>
+                            </div>
+                        ))}
+                         <div className="pt-2">
+                            <Button variant="link" className="p-0 h-auto text-accent-foreground hover:text-accent-foreground/80" asChild>
+                                <Link href="/goals">
+                                    View All Goals <Target className="ml-1 h-4 w-4"/>
+                                </Link>
+                            </Button>
+                         </div>
                     </CardContent>
                     </Card>
                 )}
@@ -245,6 +270,11 @@ export default function JournalPage() {
                                 <li key={index}>{goal}</li>
                             ))}
                         </ul>
+                         <Button variant="link" className="p-0 h-auto text-xs text-accent-foreground hover:text-accent-foreground/80 mt-2" asChild>
+                            <Link href="/goals">
+                                Go to Goals Page <Target className="ml-1 h-3 w-3"/>
+                            </Link>
+                        </Button>
                      </div>
                  )}
                  {/* IMPORTANT: DO NOT RENDER entry.therapistNotes here. It should be stored but not displayed. */}
